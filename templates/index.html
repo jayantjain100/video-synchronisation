@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>
+	Hi
+</title>
+<body>
+	<h1>Yo, This is my first webpage</h1>
+	<p>This is a paragraph </p>
+
+	<h3 id = "my_heading">This is supposed to be a video</h3>
+	<video width="640" height="480" muted = "muted" controls >
+	<source src="http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4" type="video/mp4">
+	</video>
+
+	<script src="{{ url_for('static', filename='index.js') }}"></script>
+ 	<!-- <script src = "index.js"></script> -->
+
+</body>
+</head>
+</html>
