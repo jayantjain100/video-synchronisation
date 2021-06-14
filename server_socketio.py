@@ -66,20 +66,24 @@ def state_change_for_all(potential_new):
 		cprint("rejected", "red")
 		return 
 
+
 	if potential_new["last_updated"] > state["last_updated"]:
 		cprint("accepted", "green")
+		if url_diff:
+			state = fresh_state(potential_new["raw_url"])
+			emit("state_update_from_server", state, broadcast = True, include_self = True)
+			return
+		
 		state = potential_new
 		if state["streamable_url"] is None:
+			cprint("shouldnt have happened", "red")
 			state["streamable_url"] = get_streamable_url(state["raw_url"])
 		
 		# last_state_update_from_client_uid = state["client_uid"]
 		# last_state_update_from_client_time = time.time()
 
 		# emit("state_update_from_server", state, broadcast = True)
-		if url_diff:
-			emit("state_update_from_server", state, broadcast = True, include_self = True)
-		else:
-			emit("state_update_from_server", state, broadcast = True, include_self = False)
+		emit("state_update_from_server", state, broadcast = True, include_self = False)
 
 	else:
 		print("stale request received for state change")
@@ -121,6 +125,16 @@ def get_streamable_url(youtube_url):
 def time_sync_response():
 	emit("time_sync_response", time.time())
 
+def fresh_state(youtube_url):
+	return {
+		"video_timestamp" : 0,
+		"playing": False,
+		"raw_url" : youtube_url,
+		"streamable_url" : get_streamable_url(youtube_url),
+		"last_updated" : time.time(),
+		"global_time": 0,
+		"client_uid" : None
+	}
 
 if __name__ == "__main__":
 	# state
@@ -128,15 +142,7 @@ if __name__ == "__main__":
 	unique_id = 0
 	# last_state_update_from_client_uid = 0
 	# last_state_update_from_client_time = 0
-	state = {
-		"video_timestamp" : 0,
-		"playing": False,
-		"raw_url" : "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-		"streamable_url" : None,
-		"last_updated" : time.time(),
-		"global_time": 0,
-		"client_uid" : None
-	}
+	state = fresh_state(youtube_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ" )
 	state["streamable_url"] = get_streamable_url(state["raw_url"])
 	# app.run(debug = True)
 
