@@ -68,6 +68,9 @@ Can understand how events fire in the video element better with this [tool](http
 [MDN docs](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/video)
 
 
+### 7. Using setTimeout to give a gap
+
+
 
 # Bugs I found Interesting 
 

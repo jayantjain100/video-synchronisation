@@ -22,3 +22,18 @@ vid.onclick = function(e){
 	console.log("yes, it worked", e.type)
 	console.log(e)
 }
+
+
+let myfoo = async () =>{
+	setTimeout(() => {console.log(1)}, 1000)
+	console.log("inbetween")
+	setTimeout(() => {console.log(2)}, 1000)
+}
+myfoo()
+
+let myfoo2 = async () =>{
+	await setTimeout(() => {console.log(1)}, 1000)
+	console.log("inbetween")
+	await setTimeout(() => {console.log(2)}, 1000)
+}
+myfoo2()

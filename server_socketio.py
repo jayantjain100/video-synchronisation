@@ -10,7 +10,10 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret_key?'
 socketio = SocketIO(app)
 # socketio = SocketIO(app, cors_allowed_origins='*')
-THRESH_IGNORANCE = 0.5
+# THRESH_IGNORANCE = 12 # means ignoring others for 12s, debugging purposes
+THRESH_IGNORANCE = 1
+# THRESH_IGNORANCE = 0.5
+# THRESH_IGNORANCE = 0 #means never ignoring anyone
 
 
 @app.route("/")
@@ -61,32 +64,36 @@ def state_change_for_all(potential_new):
 	too_soon = (time.time() - state["last_updated"]) < THRESH_IGNORANCE
 	other_ip = (potential_new["client_uid"] != state["client_uid"])
 	url_diff = potential_new["raw_url"] != state["raw_url"]
+	stale = (potential_new["last_updated"] < state["last_updated"])
 
-	if too_soon and other_ip:
+	if (too_soon and other_ip) or stale:
 		cprint("rejected", "red")
 		return 
 
+		# print("stale request received for state change")
 
-	if potential_new["last_updated"] > state["last_updated"]:
-		cprint("accepted", "green")
-		if url_diff:
-			state = fresh_state(potential_new["raw_url"])
-			emit("state_update_from_server", state, broadcast = True, include_self = True)
-			return
-		
-		state = potential_new
-		if state["streamable_url"] is None:
-			cprint("shouldnt have happened", "red")
-			state["streamable_url"] = get_streamable_url(state["raw_url"])
-		
-		# last_state_update_from_client_uid = state["client_uid"]
-		# last_state_update_from_client_time = time.time()
+	# if potential_new["last_updated"] > state["last_updated"]:
+	cprint("accepted", "green")
+	if url_diff:
+		state = fresh_state(potential_new["raw_url"])
+		emit("state_update_from_server", state, broadcast = True, include_self = True)
+		# print()
+		return
+	
+	state = potential_new
+	if state["streamable_url"] is None:
+		cprint("shouldnt have happened", "red")
+		state["streamable_url"] = get_streamable_url(state["raw_url"])
+	
+	# last_state_update_from_client_uid = state["client_uid"]
+	# last_state_update_from_client_time = time.time()
 
-		# emit("state_update_from_server", state, broadcast = True)
-		emit("state_update_from_server", state, broadcast = True, include_self = False)
+	# emit("state_update_from_server", state, broadcast = True)
+	
+	# time.sleep(2) #simulating artificial lag
+	emit("state_update_from_server", state, broadcast = True, include_self = False)
+	# print()
 
-	else:
-		print("stale request received for state change")
 
 
 # this does not solve our problem
@@ -121,9 +128,14 @@ def get_streamable_url(youtube_url):
 
 
 
-@socketio.on("time_sync")
-def time_sync_response():
-	emit("time_sync_response", time.time())
+@socketio.on("time_sync_request_backward")
+def time_sync_response_backward():
+	# cprint("")
+	emit("time_sync_response_backward", time.time())
+
+@socketio.on("time_sync_request_forward")
+def time_sync_response_forward(time_at_client):
+	emit("time_sync_response_forward", time.time() - time_at_client)
 
 def fresh_state(youtube_url):
 	return {
@@ -152,3 +164,4 @@ if __name__ == "__main__":
 	host = "127.0.0.1" if not args.public else "0.0.0.0"
 	socketio.run(app, debug = args.debug, host = host)
 	# socketio.run(app)
+	
