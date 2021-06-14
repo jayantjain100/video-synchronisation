@@ -118,8 +118,9 @@ async function fetch_my_thing(){
 	return res
 }
 
-fetch_my_thing().then(console.log).catch(err => {console.log(`error is ${err}`)})
-
+console.log("what prints first")
+let a = fetch_my_thing().then(console.log).catch(err => {console.log(`error is ${err}`)})
+console.log("what prints second")
 
 async function myfoo(){
 	console.log("hi1")

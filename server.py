@@ -4,7 +4,7 @@ import time
 from termcolor import cprint
 
 from args import *
-
+import pafy
 
 app = Flask(__name__)
 api = Api(app)
@@ -16,10 +16,15 @@ put_request_args.add_argument("paused", type = bool, help = "Whether the video i
 put_request_args.add_argument("global_time_state_was_updated_at", type = float, help = "The last global timestamp when the state was updated", required = True)
 put_request_args.add_argument("global_time_to_sync_relative_video_tms", type = float, help = "The global time recorded alongside the videos current time (relative)", required = True)
 
+youtube_coversion_args = reqparse.RequestParser()
+youtube_coversion_args.add_argument("url", type = str, help = "Youtube url you want to stream", required = True)
+youtube_coversion_args.add_argument("pafy", type = bool, help = "Whether or not you need pafy to convert the stream", required = True)
+
 
 @app.route('/')
 def index():
 	return render_template("index.html")
+	# return render_template("youtube_sync.html")
 
 '''
 We need extra flags to handle 2 things - 
@@ -32,6 +37,8 @@ state = {
 	"paused" : True,
 	"global_time_state_was_updated_at" : time.time(), #time passing by is not an "update"
 	"global_time_to_sync_relative_video_tms": time.time(),
+	# "url": "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
+	"url": "https://www.youtube.com/watch?v=SZ8HlNGMolw&ab_channel=Vox"
 }
 
 # inheriting functionality and properties from the Resource parent class
@@ -76,8 +83,28 @@ class GlobalTimeSynchronisation(Resource):
 	def get(self):
 		return {"time":time.time()}
 
+class YoutubeStream(Resource):
+	def post(self):
+		global state
+		client_request = youtube_coversion_args.parse_args()
+		if client_request.pafy:
+			temp = pafy.new(client_request.url)
+			to_send = temp.allstreams[-1].url_https
+		else:
+			to_send = client_request.url
+		# // need to reinitialise the state
+		state = {
+			"timestamp" : 0,
+			"paused" : True,
+			"global_time_state_was_updated_at" : time.time(),
+			"global_time_to_sync_relative_video_tms": time.time(),
+			"url": to_send
+		}
+		return {"success":True}
+
 api.add_resource(Synchronisation, "/sync/")
 api.add_resource(GlobalTimeSynchronisation, "/sync/time/")
+api.add_resource(YoutubeStream, "/sync/YoutubeStream/")
 
 if __name__ == "__main__":
 	args = make_args()

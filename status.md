@@ -20,9 +20,9 @@ Currently, making back to back changes could cause unexpected behaviour. If enou
 
 We need a common global time for all machines to account for network latency and identify out of order requests (the server ignores POST requests with older timestamps, and the client ignores responses to it's periodic GET request which have older timestamps). But, the time depends on the local system time which can be off by a couple of seconds (as was in my 2 machines). So initially we can synchronise our times with the server, or everyone can sync with some atomic time api, but there would be a lag in the response and that can't be corrected. So unless everyone has synchronised local times from the start, there is no way to fix this. 
 
-## Unexplained Observations
+#### 3. Buffering aspect not handled
 
-1. In the paused state, the state diverged (kept on jumping by 2s). This might be correlated to losing my internet connection. Could not recreate the error as of now. 
+If a user has a slow connection and the video starts buffering then the video doesnt trigger the paused event and other users keep on going ahead. Have to find a solution for this later. Potential fix is to pause when someone buffers and then everyone will get this, but have to decide is this is the intended behaviour. 
 
 
 ## Pending Testing
@@ -47,3 +47,11 @@ We need a common global time for all machines to account for network latency and
 7. Improving the synchronisation quality- getting frame level synchronisation. 
 
 8. The option to pre-download the video and use the internet for just synchronisation. (e.g if someone has a slow connection)
+
+9. Think of the compression aspect? if you upload your own video vs directly using netflix and youtube, you lose out on the benefits like compression and CDNs (which reduce latency by having nearby servers).
+
+
+
+## Some fixes to the problems
+
+1. Currently I block the server for 1 second from accepting requests from different clients once it receives a new state update. This helps prevent processing the redundant requests the users send after they implement a change (since we dont distinguish bw user caused and event caused). Compromise - if I make a change, and my friend makes a change 0.5s later at his/her end, their legitimate change would get ignored.

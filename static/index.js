@@ -1,15 +1,53 @@
 
 console.log("STARTED");
 const url = window.location.href + 'sync/';
+// const thresh = 0.05
 const thresh = 1.5
 
 const vid = document.querySelector("video");
+console.log(vid)
 let video_playing = false;
 
 let last_updated = 0
 
+const vid_src = document.getElementById("running_src")
+
+
+async function submit_handler(){
+	try{
+		youtube_url = document.getElementById("youtube_url").value
+		res = await fetch(url + 'YoutubeStream/', {
+			method: "POST",
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body:JSON.stringify({"url":youtube_url, "pafy":true})
+		})
+		if (res.ok){
+			res = await res.json()
+			console.log(`Successfully submitted - ${res.success}`)
+		}
+		else{
+			throw "response did not have 200 status code"
+		}
+	}
+	catch(err){
+		console.log("%cYoutube URL submission failed", "color:red, font-size:20")
+		console.log(err)
+	}
+}
+
 
 function update_state(res){
+	if (res.url !== vid_src.src){
+		vid.pause()
+		vid_src.setAttribute("src", res.url)
+		vid.load()
+		video_playing = false
+		last_updated = 0
+		return 
+	}
+
 	let current_global_timestamp = get_global_time();
 
 	// the crux is that we'd like to adjust our timestamp only in the case when the video was running
@@ -118,7 +156,7 @@ function log_pause(e){
 	post_request_for_state();
 
 }
-function log_play(e, myargs){
+function log_play(e){
 	video_playing = true;
 	console.log(`the video was played/resumed from ${vid.currentTime}`);
 	last_updated = get_global_time();
@@ -179,3 +217,4 @@ synchronise_time().catch(err => {
 
 setInterval(get_request_for_state, 2000);
 
+// https://simplernerd.com/js-youtube-seek/

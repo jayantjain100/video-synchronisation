@@ -1,0 +1,31 @@
+<html>
+	<head>
+		<title>
+			Video Sync using the WebSocket Protocol
+		</title>
+	</head>
+	<body>
+		<p>Welcome!</p>
+
+		<!-- <input id = "message_input_box" placeholder="type your message"> -->
+		<!-- <button id = "message_submit_button"> post </button> -->
+
+		<input id = "youtube_url_box" placeholder="Enter a youtube link">
+		<button id = "button_url_update"> Stream </button>
+		<br>
+		<video width="640" height="480" muted = "muted" controls >
+		<source id = "running_src" type="video/mp4">
+		</video>
+		<!-- loading the sockeio library -->
+		<!-- didnt work -->
+		<!-- <script defer src="/socket.io/socket.io.js"></script> -->
+		<!-- from the tutorial - prettyprinted -->
+		<!-- <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.4.8/socket.io.min.js"></script> -->
+		<!-- from the docs -->
+		<script defer src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
+		
+		<!-- cant write like this, have to give a proper end tag -->
+		<!-- <script defer src="{{url_for('static', filename = 'index_socketio.js')}}"/> -->
+		<script defer src="{{url_for('static', filename = 'index_socketio.js')}}"></script>
+	</body>
+</html>
