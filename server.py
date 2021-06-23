@@ -86,7 +86,8 @@ def state_change_for_all(potential_new):
 def get_streamable_url(youtube_url):
 	temp = pafy.new(youtube_url)
 	#LATER - check which stream this is - dont need super high quality
-	return temp.allstreams[-1].url_https
+	# return temp.allstreams[-1].url_https
+	return temp.getbest().url_https
 
 def fresh_state(youtube_url):
 	return {
