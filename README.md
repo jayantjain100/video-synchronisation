@@ -1,6 +1,11 @@
 # Video-Synchronisation
 
 This is a web application that lets you stream youtube videos with your friends in synchronisation. 
+<!-- ![demo_interface_from_ezgif_smaller_version_take3_optimised](https://user-images.githubusercontent.com/31953115/123140923-78ed1e80-d475-11eb-9003-35baa549a552.gif) -->
+<br>
+<p align = "center">
+  <img src="https://user-images.githubusercontent.com/31953115/123140923-78ed1e80-d475-11eb-9003-35baa549a552.gif" alt="animated" />
+</p>
 
 ## Dependencies
 
