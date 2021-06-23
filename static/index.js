@@ -1,220 +1,183 @@
 
-console.log("STARTED");
-const url = window.location.href + 'sync/';
-// const thresh = 0.05
-const thresh = 1.5
+const input_box = document.getElementById('youtube_url_box')
+const submit_button = document.getElementById('button_url_update')
+const vid = document.querySelector('video')
+const vid_src = document.getElementById('running_src')
+const socket = io(window.location.href)
 
-const vid = document.querySelector("video");
-console.log(vid)
-let video_playing = false;
+// parameters 
+// if the new tms is within this margin of the current tms, then the change is ignored for smoother viewing
+const PLAYING_THRESH = 1 
+const PAUSED_THRESH = 0.01
 
+// Client's local state
+let raw_url = null
+let streamable_url = null
+let video_playing = null
 let last_updated = 0
+let client_uid = null
 
-const vid_src = document.getElementById("running_src")
+//Clock synchronisation related variables
+const num_time_sync_cycles = 10
+let over_estimates = new Array()
+let under_estimates = new Array()
+let over_estimate = 0
+let under_estimate = 0
+let correction = 0
 
 
-async function submit_handler(){
-	try{
-		youtube_url = document.getElementById("youtube_url").value
-		res = await fetch(url + 'YoutubeStream/', {
-			method: "POST",
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body:JSON.stringify({"url":youtube_url, "pafy":true})
-		})
-		if (res.ok){
-			res = await res.json()
-			console.log(`Successfully submitted - ${res.success}`)
-		}
-		else{
-			throw "response did not have 200 status code"
-		}
-	}
-	catch(err){
-		console.log("%cYoutube URL submission failed", "color:red, font-size:20")
-		console.log(err)
-	}
+
+// button to enter new youtube url
+submit_button.onclick =  (event) => {
+	console.log(`You entered ${input_box.value}`)
+	raw_url = input_box.value
+	streamable_url = null
+	input_box.value = ""	
+	state_change_handler()
 }
 
+// connection event, sever sends a state update whenever a new connection is made
+socket.on("connect", () => {
+	console.log("Socket connection establised to the server")
+})
 
-function update_state(res){
-	if (res.url !== vid_src.src){
+// disconnection event
+socket.on("disconnect", () => {
+	console.log("got disconnected")
+	client_uid = null
+})
+
+
+socket.on("state_update_from_server", (state) => {
+
+	// Whenever the client connects or reconnects
+	if (client_uid == null){
+		client_uid = state.client_uid;
+	}
+
+	// someone changed the video
+	if (vid_src.src !== state.streamable_url){
 		vid.pause()
-		vid_src.setAttribute("src", res.url)
+		raw_url = state.raw_url
+		streamable_url = state.streamable_url
+		vid_src.src = streamable_url 
 		vid.load()
-		video_playing = false
-		last_updated = 0
-		return 
-	}
+	} 
 
-	let current_global_timestamp = get_global_time();
+	// calculating the new timestamp for both cases - when the video is playing and when it is paused
+	let proposed_time = (state.playing) ? ((state.video_timestamp - state.global_timestamp) + get_global_time(correction) ) : (state.video_timestamp)
+	let gap = Math.abs(proposed_time - vid.currentTime)
 
-	// the crux is that we'd like to adjust our timestamp only in the case when the video was running
-	let proposed_time;
-	if (res.paused){
-		proposed_time = res.timestamp;
+	console.log(`%cGap was ${proposed_time - vid.currentTime}`, 'font-size:12px; color:purple')
+
+	if (state.playing){
+		if(gap > PLAYING_THRESH){
+			// tolerance while the video is playing
+			vid.currentTime = proposed_time
+		}
+		vid.play()
 	}
 	else{
-		proposed_time = res.timestamp + (current_global_timestamp - res.global_time_to_sync_relative_video_tms);
-	}
-	console.log(`Get request showed a tms diff of ${(vid.currentTime - proposed_time)}s`)
-
-	if (Math.abs(vid.currentTime - proposed_time) >= thresh){
-		console.log(`You either drifted away or someone seeked the video, you were at ${vid.currentTime} and you received ${proposed_time}`)
-		vid.currentTime = proposed_time;
-	}
-	else if(res.paused){
-		// It will bring it to the exact timestamp even if they were nearby, might seem like an inconvenience to the user
-		// Think about this again
-		// usually this will bring the user back by a couple of frames/deciseconds (the one who did not cause the event, so its not that bad i guess?)
-		if (vid.currentTime !== proposed_time){
-			// because we dont want to trigger a seek event and update the last_update variable unnecessarily
-			vid.currentTime = proposed_time; 
-
+		vid.pause()
+		if (gap > PAUSED_THRESH){
+			// condition to prevent an unnecessary seek
+			vid.currentTime = proposed_time
 		}
 	}
+})
 
-	// Do we need this block of code?
-	// if (!res.paused){
-	// 	video_playing = true;
-	// }
-	// else{
-	// 	video_playing = false;
-	// }
-
-	if (!res.paused){
-		vid.play();
-	}
-	else{
-		vid.pause();
-	}
-}
-function get_request_for_state(){
-	console.log(`video paused - ${!video_playing}`)
-	fetch(url)
-	.then(res => {
-		if (res.ok){
-			console.log("get request was SUCCESSFUL");
-			return res.json();
+let state_change_handler = (event) => {
+	if (event !== null && event !== undefined){
+		if (event.type === 'pause'){
+			video_playing = false
 		}
-		else{
-			console.log("get request failed");
-		}
-	}).then(res => 
-	{
-		console.log(res);
-		console.log(`%cDifference between update times on GET's response and local state is ${res.global_time_state_was_updated_at - last_updated}`,
-			'color: green')
-		if (res.global_time_state_was_updated_at > last_updated){
-			update_state(res);
-		}
-		else{
-			console.log("%cIgnored old state received from server", "color: blue; font-size:15px;");
+		else if (event.type === 'play'){
+			video_playing = true
 		}
 	}
-	)
-	.catch( error => { 
-		console.log("%cGET could not be performed, threw an exception", "color: red");
-		console.log(error)
-	})
-}
-function post_request_for_state(){
-	console.log(`video_playing variable is ${video_playing}`)
-	let to_send = {
-					timestamp: vid.currentTime,
-					paused: !video_playing,
-					global_time_state_was_updated_at: last_updated,
-					global_time_to_sync_relative_video_tms: get_global_time()
-				}
-	console.log("making the post request ");
-	console.log(to_send);
-	fetch(url, {
-		method: "POST",
-		headers: {
-			'Content-Type': 'application/json'
-		},
-		body:JSON.stringify(to_send)
-	})
-	.then(res => {
-		if (res.ok){
-			console.log("post request was SUCCESSFUL");
-			return res.json();
-		}
-		else{
-			console.log("post request failed");
-		}
-	}).catch( error => { 
-		console.log("POST could not be performed, threw an exception");
-	})
-}
-
-function log_pause(e){
-	video_playing = false;
-	console.log(vid.currentTime);
-	last_updated = get_global_time();
-	post_request_for_state();
-
-}
-function log_play(e){
-	video_playing = true;
-	console.log(`the video was played/resumed from ${vid.currentTime}`);
-	last_updated = get_global_time();
-	post_request_for_state();
-}
-
-// TIP - access the event object by adding it to the function signature
-function log_seek(e){
-	// last_updated = get_global_time();
-	console.log(`You have jumped to the time ${vid.currentTime}`);
-	post_request_for_state();
-
-}
-
-function log_seek_start(e){
-	// fired as soon as a seek operation starts
-	// therefore this function is always called before log_seek
-	// we note last_updated here so that we can detect stale get responses early on
-	last_updated = get_global_time();
-	console.log(`last_updated is now ${last_updated}`)
-	console.log(`You are trying to jump to the time ${vid.currentTime}`);
-}
-
-vid.onplay = log_play;
-vid.onpause = log_pause;
-vid.onseeked = log_seek;
-vid.onseeking = log_seek_start;
-
-
-let time_diff = 0;
-
-function get_global_time(){
-	let d = new Date();
-	let t = d.getTime()/1000;
-	return t + time_diff;
-}
-
-// the global time function in JS uses the local computer time which may be wrong
-// we need a scynchronised global time to do a ton of stuff like account for network lag and decide which event happened later
-// this function sets the time_diff used in turn by get_global_time
-// this still does not account for the initial network lag - unsolvable?? unless we assume that everyones local times are already in sync and dont do this step
-async function synchronise_time(){
-	res = await fetch(url + 'time/')
-	console.log(`res is here `)
-	console.log(res)
-	if (res.ok){
-		res = await res.json() //res.json also returns a promise isliye hum pehle .then karte the
-		time_diff = res.time - get_global_time()
+	last_updated = get_global_time(correction)
+	state_image = {
+		video_timestamp: vid.currentTime,
+		last_updated: last_updated,
+		playing: video_playing,
+		global_timestamp: get_global_time(correction),
+		raw_url : raw_url,
+		streamable_url: streamable_url,
+		client_uid: client_uid
 	}
-	console.log(`%cFound time diff to be ${time_diff}`, 'color: green; font-size:15px')
+	socket.emit("state_update_from_client", state_image)
+}
+
+// assigning event handlers
+vid.onseeking = state_change_handler
+vid.onplay = state_change_handler
+vid.onpause = state_change_handler
+
+// handling the video ended case separately
+vid.onended = () => {
+	video_playing = false
+	last_updated = get_global_time(correction)
+	vid.load()
+	state_change_handler()
+}
+
+function median(values){
+	if(values.length === 0){
+		return 0
+	}
+	values.sort((x,y) => (x-y));
+	let half = Math.floor(values.length / 2);
+	if (values.length % 2){
+		return values[half];
+	}
+	return (values[half - 1] + values[half]) / 2.0;
+}
+
+function get_global_time(delta = 0){
+	let d = new Date()
+	let t = d.getTime()/1000
+	// delta is the correction parameter
+	return t + delta
 }
 
 
-synchronise_time().catch(err => {
-	console.log(`initial time sync failed due to ${err}`)
-});
+let do_time_sync_one_cycle_backward = () => {
+	socket.emit("time_sync_request_backward")
+}
+let do_time_sync_one_cycle_forward = () => {
+	socket.emit("time_sync_request_forward", get_global_time(0))
+}
+function timeout(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// time requests are made every second
+let do_time_sync = async () => {
+	for(let i = 0; i < num_time_sync_cycles; i++){
+		await timeout(1000)
+		do_time_sync_one_cycle_backward()
+		await timeout(1000)
+		do_time_sync_one_cycle_forward()
+	}
+}
+do_time_sync()
+
+socket.on("time_sync_response_backward", (time_at_server)=>{
+	under_estimate_latest =  time_at_server - get_global_time(0)
+	under_estimates.push(under_estimate_latest)	
+	under_estimate = median(under_estimates)
+	correction = (under_estimate + over_estimate)/2		
+	console.log(`%c Updated val for under_estimate is ${under_estimate}`, "color:green")
+	console.log(`%c New correction time is ${correction} seconds`, 'color:red; font-size:12px')
+})
+
+socket.on("time_sync_response_forward", (calculated_diff)=>{
+	over_estimate_latest = calculated_diff
+	over_estimates.push(over_estimate_latest)	
+	over_estimate = median(over_estimates)
+	correction = (under_estimate + over_estimate)/2		
+	console.log(`%c Updated val for over_estimate is ${over_estimate}`, "color:green")
+	console.log(`%c New correction time is ${correction} seconds`, 'color:red; font-size:12px')
+})
 
 
-setInterval(get_request_for_state, 2000);
-
-// https://simplernerd.com/js-youtube-seek/

@@ -1,118 +1,113 @@
-from flask import Flask, render_template, request
-from flask_restful import Api, Resource, reqparse
-import time
-from termcolor import cprint
-
-from args import *
+from flask import Flask, render_template
+from flask_socketio import SocketIO, emit, send
+import time 
 import pafy
+from termcolor import cprint
+from args import make_args
 
 app = Flask(__name__)
-api = Api(app)
-# all_posts = []
+app.config['SECRET_KEY'] = 'secret_key?'
+socketio = SocketIO(app)
+# socketio = SocketIO(app, cors_allowed_origins='*')
 
-put_request_args = reqparse.RequestParser()
-put_request_args.add_argument("timestamp", type = float, help = "Current timestamp of the video", required = True)
-put_request_args.add_argument("paused", type = bool, help = "Whether the video is paused or not", required = True)
-put_request_args.add_argument("global_time_state_was_updated_at", type = float, help = "The last global timestamp when the state was updated", required = True)
-put_request_args.add_argument("global_time_to_sync_relative_video_tms", type = float, help = "The global time recorded alongside the videos current time (relative)", required = True)
-
-youtube_coversion_args = reqparse.RequestParser()
-youtube_coversion_args.add_argument("url", type = str, help = "Youtube url you want to stream", required = True)
-youtube_coversion_args.add_argument("pafy", type = bool, help = "Whether or not you need pafy to convert the stream", required = True)
+# THRESH_IGNORANCE = 12 # means ignoring others for 12s, debugging purposes
+THRESH_IGNORANCE = 1
+# THRESH_IGNORANCE = 0.5
+# THRESH_IGNORANCE = 0 #means never ignoring anyone - causes the infinite loop issue
 
 
-@app.route('/')
-def index():
-	return render_template("index.html")
-	# return render_template("youtube_sync.html")
+@app.route("/")
+def homepage():
+	return render_template('index.html')
 
-'''
-We need extra flags to handle 2 things - 
-1. out of order requests 
-2. latency - requests and responses sent are received after some lag because of the network
+# note that connect, disconnect, json and message are keywords
 
-'''
-state = {
-	"timestamp" : 0,
-	"paused" : True,
-	"global_time_state_was_updated_at" : time.time(), #time passing by is not an "update"
-	"global_time_to_sync_relative_video_tms": time.time(),
-	# "url": "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4"
-	"url": "https://www.youtube.com/watch?v=SZ8HlNGMolw&ab_channel=Vox"
-}
+@socketio.on('explicit_request_for_state')
+def explicit_state_request():
+	emit('state_update_from_server', state)
 
-# inheriting functionality and properties from the Resource parent class
-class Synchronisation(Resource):
-	def get(self):
-		global state	
 
-		# now we are doing these calculations at the client's end
-		# if not state["paused"]:
-			# current_time = time.time()
-			# state["timestamp"] += (current_time - state["global_time_to_sync_relative_video_tms"])
-			# state["global_time_to_sync_relative_video_tms"] = current_time
+@socketio.on('connect')
+def connection_event():
+	global num_users, unique_id, state
+	num_users += 1
+	print(f"new user connected, now num users is {num_users}")
+	copy_of_state = state.copy()
+	copy_of_state['client_uid'] = unique_id
+	unique_id += 1
+	emit('state_update_from_server', copy_of_state)
 
-		return state
 
-	def post(self):
-		global state, all_posts
-		client_request = put_request_args.parse_args()
-		# print(f"received a post request from {request.remote_addr} to update state to {client_request}")
-		
-		# debugging		
-		# all_posts.append(client_request.copy())
-		# cprint(f"Look here - {len(all_posts)}", "cyan")
-		# print(*all_posts, sep = "\n")
-		# print()
+@socketio.on('disconnect')
+def connection_event():
+	global num_users
+	num_users -= 1
+	print(f"User disconnected, now num users is {num_users}")
 
-		if client_request.global_time_state_was_updated_at < state["global_time_state_was_updated_at"]:
-			# cant update the state, since we already have the state corresponding to something that a client did later
-			print("Stale POST request")
-			pass
-		else:
-			state["global_time_to_sync_relative_video_tms"] = client_request.global_time_to_sync_relative_video_tms
-			state["global_time_state_was_updated_at"] = client_request.global_time_state_was_updated_at
-			state["timestamp"] = client_request.timestamp
-			state["paused"] = client_request.paused
-			print(f"Updated state to {state}")
 
-		# we dont need to return anything as of now, since the person will eventually GET it, pun intended
-		return {}
+@socketio.on("time_sync_request_backward")
+def time_sync_response_backward():
+	emit("time_sync_response_backward", time.time())
 
-class GlobalTimeSynchronisation(Resource):
-	def get(self):
-		return {"time":time.time()}
 
-class YoutubeStream(Resource):
-	def post(self):
-		global state
-		client_request = youtube_coversion_args.parse_args()
-		if client_request.pafy:
-			temp = pafy.new(client_request.url)
-			to_send = temp.allstreams[-1].url_https
-		else:
-			to_send = client_request.url
-		# // need to reinitialise the state
-		state = {
-			"timestamp" : 0,
-			"paused" : True,
-			"global_time_state_was_updated_at" : time.time(),
-			"global_time_to_sync_relative_video_tms": time.time(),
-			"url": to_send
-		}
-		return {"success":True}
+@socketio.on("time_sync_request_forward")
+def time_sync_response_forward(time_at_client):
+	emit("time_sync_response_forward", time.time() - time_at_client)
 
-api.add_resource(Synchronisation, "/sync/")
-api.add_resource(GlobalTimeSynchronisation, "/sync/time/")
-api.add_resource(YoutubeStream, "/sync/YoutubeStream/")
+
+@socketio.on("state_update_from_client")
+def state_change_for_all(potential_new):
+	global state
+	global THRESH_IGNORANCE
+	print(f"at {time.ctime()}, req from:{potential_new['client_uid']}, goto {potential_new['video_timestamp']}, playing: {potential_new['playing']}, last_updated was {round((potential_new['last_updated'])%100, 4)}")
+	too_soon = (time.time() - state["last_updated"]) < THRESH_IGNORANCE
+	other_ip = (potential_new["client_uid"] != state["client_uid"])
+	url_diff = potential_new["raw_url"] != state["raw_url"]
+	stale = (potential_new["last_updated"] < state["last_updated"])
+
+	if (too_soon and other_ip) or stale:
+		cprint("rejected", "red")
+		return 
+
+	cprint("accepted", "green")
+	if url_diff:
+		state = fresh_state(potential_new["raw_url"])
+		emit("state_update_from_server", state, broadcast = True, include_self = True)
+		return
+	
+	state = potential_new
+	if state["streamable_url"] is None:
+		cprint("shouldnt have happened", "red")
+		state["streamable_url"] = get_streamable_url(state["raw_url"])
+	
+	emit("state_update_from_server", state, broadcast = True, include_self = False)
+	
+
+def get_streamable_url(youtube_url):
+	temp = pafy.new(youtube_url)
+	#LATER - check which stream this is - dont need super high quality
+	return temp.allstreams[-1].url_https
+
+def fresh_state(youtube_url):
+	return {
+		"video_timestamp" : 0,
+		"playing": False,
+		"raw_url" : youtube_url,
+		"streamable_url" : get_streamable_url(youtube_url),
+		"last_updated" : time.time(),
+		"global_time": 0,
+		"client_uid" : None
+	}
 
 if __name__ == "__main__":
+	num_users = 0
+	unique_id = 0
+	state = fresh_state(youtube_url = "https://www.youtube.com/watch?v=aqz-KE-bpKQ" )
+	state["streamable_url"] = get_streamable_url(state["raw_url"])
+	
 	args = make_args()
 	print(args)
+	
 	host = "127.0.0.1" if not args.public else "0.0.0.0"
-	app.run(debug = True, host = host, threaded = False, processes = 1)
-	# app.run(debug = True, host="127.0.0.1", threaded = False, processes = 1)
-	# app.run(debug = True, host="127.0.0.1", threaded = True, processes = 1)
-	# app.run(debug = True, host="127.0.0.1", threaded = False, processes = 2)
-	# app.run(host="0.0.0.0")
-
+	socketio.run(app, debug = args.debug, host = host)
+	

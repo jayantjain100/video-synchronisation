@@ -12,26 +12,74 @@
 // understanding how asynchronous calls work
 // when do the callbacks actually execute
 
+//add comments and then add this example
+
+// function func_that_makes_async_call(msg){
+// 	setTimeout(console.log, 100 ,msg);
+// }
+// func_that_makes_async_call("the function that makes an asy");
+
+
 //loop takes 3 to 4 seconds
 function long_loop(){
-	let a = 0;
+	let a = 0
 	for(let i =0; i < 1000000000; i++){
-		a += 1;
+		a += 1
 	}
 }
 
-function func_that_makes_async_call(msg){
-	setTimeout(console.log, 100 ,msg);
+console.log("Started")
+setTimeout(console.log, 100 ,"SetTimeout call 1")
+setTimeout(console.log, 0   ,"SetTimeout call 2")
+
+long_loop()
+console.log("After loop 1")
+setTimeout(console.log, 0   ,"SetTimeout call 3");
+
+long_loop()
+console.log("After loop 2")
+
+
+
+
+// Create a nested promise example, make async function to return a promise
+
+async function bar(){
+	console.log("bar")
+}
+async function foo(){
+	console.log("foo")
+}
+async function foobar(){
+	console.log("entered foobar")
+	foo()
+	console.log("in between foobar")
+	bar()
+	console.log("exiting foobar")
 }
 
-console.log("Entered");
-setTimeout(console.log, 100 ,"async1");
-setTimeout(console.log, 0 ,"async2");
-func_that_makes_async_call("im the func that had an async call in it");
-long_loop()
-console.log("done1");
-long_loop()
-console.log("done2");
+
+console.log("Start")
+foobar()
+console.log("End")
+
+
+async function foobar2(){
+	console.log("entered foobar")
+	await foo()
+	console.log("in between foobar")
+	await bar()
+	console.log("exiting foobar")
+}
+console.log("Start")
+foobar2()
+console.log("End")
+
+
+let a = myfoo()
+console.log("yolo1")
+console.log("yolo2")
+
 
 // funda is ki async functions are asynchronous, they return promises instead of the value
 // await keyword can be used in front of a promise (or equivalently a function call that will return a promise )

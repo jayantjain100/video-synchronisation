@@ -1,33 +1,22 @@
-<!DOCTYPE html>
 <html>
-<head>
-	<!-- to import jQuery -->
-	 <!-- <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script> -->
-<title>
-	Video Synchroniser
-</title>
-<body>
-	<input type = "text" id = "youtube_url" placeholder = "Enter youtube url" />
-		<br/>
-		<button onclick="submit_handler()" id = "url_submit_button" >Stream youtube content</button>
-	<br/>
+	<head>
+		<title>
+			Video Sync using the WebSocket Protocol
+		</title>
+	</head>
+	<body>
+		<p>Welcome!</p>
 
-	<h1>Hi, This is my first webpage</h1>
-	<!-- <p>This is a paragraph </p> -->
+		<input id = "youtube_url_box" placeholder="Enter a youtube link">
+		<button id = "button_url_update"> Stream </button>
+		<br>
+		<!-- <video width="640" height="480" muted = "muted" controls controlsList="nodownload" > -->
+		<video width="560" height="420" muted = "muted" controls controlsList="nodownload" >
+		<source id = "running_src" type="video/mp4">
+		</video>
+		<!-- loading the sockeio library -->
+		<script defer src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
+		<script defer src="{{url_for('static', filename = 'index.js')}}"></script>
 
-	<!-- <h3 id = "my_heading">This is supposed to be a video</h3> -->
-	<!-- <iframe width="560" height="315" src="https://www.youtube.com/embed/eY9dXcjkVx8" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe> -->
-	<!-- <iframe width="560" height="315" src="https://www.youtube.com/embed/eY9dXcjkVx8" title="YouTube video player" frameborder="0" allowfullscreen></iframe> -->
-
-	<video width="640" height="480" muted = "muted" controls >
-	<!-- <source id = "running_src" src="http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4" type="video/mp4"> -->
-	<source id = "running_src" type="video/mp4">
-	</video>
-
-	
-	<!-- <script defer src="{{ url_for('static', filename='script.js') }}"></script> -->
-	<script defer src="{{ url_for('static', filename='index.js') }}"></script>
-
-</body>
-</head>
+	</body>
 </html>
