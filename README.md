@@ -1,6 +1,7 @@
 # Video-Synchronisation
 
-This is a web application that lets you stream youtube videos with your friends in synchronisation. 
+This is a web application that lets you stream youtube videos with your friends in synchronisation. For an in-depth explanation, check out my [medium article](https://levelup.gitconnected.com/tired-of-making-to-do-list-applications-acce875fe617?source=friends_link&sk=0b093661d00424f08e20ae5294c3f84b).
+
 <!-- ![demo_interface_from_ezgif_smaller_version_take3_optimised](https://user-images.githubusercontent.com/31953115/123140923-78ed1e80-d475-11eb-9003-35baa549a552.gif) -->
 <br>
 <p align = "center">
